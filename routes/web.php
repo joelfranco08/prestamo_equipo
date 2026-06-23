@@ -1,17 +1,17 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\PrestamoController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\SolicitanteController; // <-- Revisa que esta línea esté escrita
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-// CRUDs Resources completas
-Route::resource('equipos', EquipoController::class);
+// Esta línea es la que CREA 'solicitantes.index' de forma automática:
+Route::resource('solicitantes', SolicitanteController::class);
 
-// Préstamos con ruta explícita POST para devoluciones
-Route::get('prestamos', [PrestamoController::class, 'index'])->name('prestamos.index');
-Route::get('prestamos/crear', [PrestamoController::class, 'create'])->name('prestamos.create');
-Route::post('prestamos', [PrestamoController::class, 'store'])->name('prestamos.store');
-Route::post('prestamos/{prestamo}/devolver', [PrestamoController::class, 'devolver'])->name('prestamos.devolver');
+Route::resource('equipos', EquipoController::class);
+Route::resource('prestamos', PrestamoController::class);
+// Asegúrate de tener esta línea exacta para procesar la devolución
+Route::post('/prestamos/{id}/devolver', [PrestamoController::class, 'devolver'])->name('prestamos.devolver');

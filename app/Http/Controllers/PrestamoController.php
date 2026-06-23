@@ -11,58 +11,66 @@ use Illuminate\Support\Facades\DB;
 
 class PrestamoController extends Controller
 {
-    public function index()
+ public function index()
     {
-        // Se mantiene 'latest()' o un ordenamiento explícito limpio para evitar conflictos de lectura del editor
-        $prestamos = Prestamo::query()->with(['equipo', 'solicitante'])->latest('id')->get();
+        // Trae los préstamos cargando sus relaciones individuales
+        $prestamos = Prestamo::with(['equipo', 'solicitante'])->latest('id')->get();
+
         return view('prestamos.index', compact('prestamos'));
     }
 
-    public function create()
-    {
-        $equipos = Equipo::whereEstado('Disponible')->get();
-        $solicitantes = Solicitante::all();
-        return view('prestamos.create', compact('equipos', 'solicitantes'));
-    }
+  public function create()
+{
+    // Solo mandamos a la vista los equipos que estén libres
+    $equipos = Equipo::where('estado', 'Disponible')->get();
+    $solicitantes = Solicitante::all();
 
-    public function store(StorePrestamoRequest $request)
+    return view('prestamos.create', compact('equipos', 'solicitantes'));
+}
+   public function store(StorePrestamoRequest $request)
     {
-        // Usamos una transacción para asegurar que el préstamo y el cambio de estado ocurran juntos
         DB::transaction(function () use ($request) {
-            // 1. Buscar el equipo de forma segura (Arroja 404 si el ID no es válido)
             $equipo = Equipo::findOrFail($request->equipo_id);
 
-            // [Opcional] Doble validación por si dos usuarios intentan tomar el mismo equipo al tiempo
-            if ($equipo->estado !== 'Disponible') {
-                abort(422, 'El equipo seleccionado ya no está disponible.');
-            }
+            // COMENTA ESTAS LÍNEAS agregando // al inicio:
+            // if ($equipo->estado !== 'Disponible') {
+            //     abort(422, 'El equipo seleccionado ya no está disponible.');
+            // }
 
-            // 2. Registrar préstamo
-            Prestamo::create($request->validated());
+            // 2. Insertamos el registro
+          Prestamo::create([
+                'equipo_id'                 => $request->input('equipo_id'),
+                'solicitante_id'            => $request->input('solicitante_id'),
+                'fecha_prestamo'            => $request->input('fecha_prestamo'),
+                'fecha_devolucion_esperada' => $request->input('fecha_dev_esperada'), // <-- AQUÍ: La columna real es fecha_devolucion_esperada
+                'observaciones_entrega'     => $request->input('observaciones_entrega'),
+            ]);
 
-            // 3. Transición automática de Estado
+            // 3. Cambiamos automáticamente el estado del equipo a Prestado
             $equipo->update(['estado' => 'Prestado']);
         });
 
-        return redirect()->route('prestamos.index')->with('success', 'Préstamo procesado con éxito.');
+        return redirect()->route('prestamos.index')->with('success', 'Préstamo procesado con éxito y equipo actualizado.');
     }
 
-    public function devolver(Request $request, Prestamo $prestamo)
-    {
-        $request->validate(['observaciones_devolucion' => 'nullable|string']);
+    // OJO: El método DEBE ir aquí adentro, antes de que se cierre la clase
+ public function devolver(Request $request, $id)
+{
+    DB::transaction(function () use ($id) {
+        // 1. Buscamos el préstamo activo
+        $prestamo = Prestamo::findOrFail($id);
 
-        // Aseguramos la atomicidad de la devolución
-        DB::transaction(function () use ($request, $prestamo) {
-            // 1. Registrar devolución real
-            $prestamo->update([
-                'fecha_devolucion_real' => now(),
-                'observaciones_devolucion' => $request->observaciones_devolucion
-            ]);
+        // 2. Registramos la fecha de devolución real (hoy)
+        $prestamo->update([
+            'fecha_devolucion_real' => now()->format('Y-m-d'),
+        ]);
 
-            // 2. Regresar equipo a disponible
-            $prestamo->equipo->update(['estado' => 'Disponible']);
-        });
+        // 3. ¡Liberamos el hardware automáticamente!
+        $prestamo->equipo->update([
+            'estado' => 'Disponible'
+        ]);
+    });
 
-        return redirect()->route('prestamos.index')->with('success', 'Equipo devuelto e integrado al inventario.');
-    }
+    return redirect()->route('prestamos.index')->with('success', 'Equipo recibido con éxito. Su estado ha cambiado a Disponible.');
 }
+} // <-- Esta es la ÚLTIMA llave que cierra la clase completa. ¡No debe quedar nada abajo de ella!

@@ -30,27 +30,29 @@
                 @forelse($prestamos as $prestamo)
                     <tr>
                         <td>
-                            <strong>{{ $prestamo->equipo->codigo }}</strong> - {{ $prestamo->equipo->nombre }}
+                            <strong>{{ $prestamo->equipo?->codigo ?? 'S/C' }}</strong> - {{ $prestamo->equipo?->nombre ?? 'Equipo Eliminado' }}
                         </td>
-                        <td>{{ $prestamo->solicitante->nombre }} ({{ $prestamo->solicitante->tipo }})</td>
+                        <td>{{ $prestamo->solicitante?->nombre ?? 'N/A' }} ({{ $prestamo->solicitante?->tipo ?? 'N/A' }})</td>
+
                         <td>{{ \Carbon\Carbon::parse($prestamo->fecha_prestamo)->format('d/m/Y') }}</td>
-                        <td>{{ \Carbon\Carbon::parse($prestamo->fecha_dev_esperada)->format('d/m/Y') }}</td>
+                        <td>{{ \Carbon\Carbon::parse($prestamo->fecha_devolucion_esperada)->format('d/m/Y') }}</td>
+
                         <td>
                             @if($prestamo->fecha_devolucion_real)
-                                <span class="badge bg-success">Devuelto</span>
+                                <span class="badge bg-success text-white px-2 py-1">Devuelto</span>
                             @else
-                                <span class="badge bg-warning text-dark">Activo</span>
+                                <span class="badge bg-warning text-dark px-2 py-1">Activo</span>
                             @endif
                         </td>
+
                         <td class="text-center">
                             @if(!$prestamo->fecha_devolucion_real)
                                 <form action="{{ route('prestamos.devolver', $prestamo->id) }}" method="POST" class="d-inline">
                                     @csrf
-                                    @method('PUT')
-                                    <button type="submit" class="btn btn-sm btn-success">Recibir</button>
+                                    <button type="submit" class="btn btn-sm btn-success fw-bold px-3">Recibir</button>
                                 </form>
                             @else
-                                <span class="text-muted">Finalizado</span>
+                                <span class="text-muted small fw-bold">Finalizado</span>
                             @endif
                         </td>
                     </tr>
